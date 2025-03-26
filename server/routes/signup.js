@@ -1,192 +1,166 @@
 module.exports = function (app, pool, bcrypt, transporter, crypto) {
-  //CREATE A USER IN SIGNUP
   app.post('/api/signup', async (request, response) => {
+    try {
+      const {
+        username,
+        firstname,
+        lastname,
+        email,
+        password,
+        confirmPassword
+      } = request.body;
 
-    const username = request.body.username
-    const firstname = request.body.firstname
-    const lastname = request.body.lastname
-    const email = request.body.email
-    const password = request.body.password
-    const confirmPassword = request.body.confirmPassword
-
-    const validateSignupData = (username, firstname, lastname, email, password, confirmPassword) => {
-
-      const validateCharacters = async () => {
+      // Validation function
+      const validateSignupData = async () => {
+        // Username validation
         if (username.length < 4 || username.length > 25) {
-          throw ("Username has to be between 4 and 25 characters.")
+          throw new Error("Username must be between 4-25 characters");
         }
-        if (!username.match(/^[a-z0-9]+$/i))
-          throw ("Username should only include alphabetical characters (a to z and/or A to Z) and numbers (0 to 9).")
-        if (firstname.length > 50 || lastname.length > 50 || firstname.length < 1 || lastname.length < 1)
-          throw ("Maximum length for first name and last name is 50 characters. Minimum length is 1 character.")
-        if (!firstname.match(/^[a-zåäö-]+$/i) || !lastname.match(/^[a-zåäö-]+$/i))
-          throw ("First name and last name can only include characters a to z, å, ä, ö, and hyphen (-).")
-        if (email.length > 254 || !email.match(/^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9-]+(?:\.[a-zA-Z0-9-]+)*$/))
-          throw ("Please enter a valid e-mail address.")
-        if (!password.match(/(?=^.{8,30}$)(?=.*\d)(?=.*[!.@#$%^&*]+)(?=.*[A-Z])(?=.*[a-z]).*$/)) {
-          throw (`Please enter a password with a length between 8 and 30 characters, 
-                  at least one lowercase alphabetical character (a to z), 
-                  at least one uppercase alphabetical character (A to Z), 
-                  at least one numeric character (0 to 9), 
-                  and at least one special character (!.@#$%^&*)`)
-        }
-        if (password !== confirmPassword)
-          throw ("The entered passwords are not the same!")
-        return
-      }
-
-      const checkUsername = async () => {
-        var sql = "SELECT * FROM users WHERE username = $1";
-        const { rows } = await pool.query(sql, [username])
-        if (rows.length) {
-          throw ("Username already exists! Choose a different username")
-        } else
-          return
-      }
-
-      const checkEmail = async () => {
-        var sql = "SELECT * FROM users WHERE email = $1";
-        const { rows } = await pool.query(sql, [email])
-        if (rows.length) {
-          throw ("User with this e-mail already exists! Choose a different email address.")
-        } else {
-          return
-        }
-      }
-
-      return (
-        validateCharacters()
-          .then(() => checkUsername())
-          .then(() => checkEmail())
-          .then(() => {
-            return (true)
-          }).catch((error) => {
-            return (error)
-          })
-      )
-    }
-
-    const signupValidationResult = await validateSignupData(username, firstname, lastname, email, password, confirmPassword)
-
-    if (signupValidationResult === true) {
-      const generateVerificationCode = async () => {
-        const retrieveUserId = async () => {
-          var sql = 'SELECT id FROM users WHERE username = $1;'
-          const result = await pool.query(sql, [username])
-          return result.rows[0]['id']
+        if (!/^[a-z0-9]+$/i.test(username)) {
+          throw new Error("Username can only contain letters and numbers");
         }
 
-        // Generating a code and checking for the very unlikely case that a similar code already exists in the table.
-        while (true) {
-          var code = crypto.randomBytes(20).toString('hex')
-          var sql = 'SELECT * FROM email_verify WHERE verify_code = $1;'
-          const result = await pool.query(sql, [code])
-          if (result.rows.length < 1) {
-            console.log('No duplicates found for the newly generated verification code in signup.')
-            break
-          } else {
-            console.log('Found a duplicate for the newly generated verification code in signup. Proceeding to generate a new code.')
-            continue
-          }
+        // Name validation
+        if (firstname.length > 50 || lastname.length > 50 || 
+            firstname.length < 1 || lastname.length < 1) {
+          throw new Error("Names must be 1-50 characters");
         }
 
-        retrieveUserId()
-          .then((user_id) => {
-            var sql = 'INSERT INTO email_verify (user_id, email, verify_code) VALUES ($1, $2, $3);'
-            pool.query(sql, [user_id, email, code])
-          }).catch(error => {
-            console.error('Error in signup: ', error)
-          })
+        // Email validation
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+          throw new Error("Invalid email format");
+        }
 
-        return (code)
-      }
+        // Password validation
+        if (!/(?=.*\d)(?=.*[a-z])(?=.*[A-Z])(?=.*\W).{8,30}/.test(password)) {
+          throw new Error("Password must contain uppercase, lowercase, number, and special character");
+        }
+        if (password !== confirmPassword) {
+          throw new Error("Passwords don't match");
+        }
 
-      const sendVerificationCodeByEmail = (email, username, code) => {
+        // Check if username exists
+        const [userRows] = await pool.query(
+          "SELECT id FROM users WHERE username = ?", 
+          [username]
+        );
+        if (userRows.length > 0) {
+          throw new Error("Username already exists");
+        }
 
-        var mailOptions = {
+        // Check if email exists
+        const [emailRows] = await pool.query(
+          "SELECT id FROM users WHERE email = ?", 
+          [email]
+        );
+        if (emailRows.length > 0) {
+          throw new Error("Email already registered");
+        }
+      };
+
+      await validateSignupData();
+
+      // Hash password
+      const hashedPassword = await bcrypt.hash(password, 10);
+
+      // Start transaction
+      const connection = await pool.getConnection();
+      await connection.beginTransaction();
+
+      try {
+        // Insert user
+        const [userResult] = await connection.query(
+          `INSERT INTO users 
+           (username, firstname, lastname, email, password, verified) 
+           VALUES (?, ?, ?, ?, ?, 'NO')`,
+          [username, firstname, lastname, email, hashedPassword]
+        );
+
+        const userId = userResult.insertId;
+
+        // Generate verification code
+        const verificationCode = crypto.randomBytes(20).toString('hex');
+
+        // Store verification code
+        await connection.query(
+          `INSERT INTO email_verify 
+           (user_id, email, verify_code) 
+           VALUES (?, ?, ?)`,
+          [userId, email, verificationCode]
+        );
+
+        // Create fame rating entry
+        await connection.query(
+          `INSERT INTO fame_rates (user_id) VALUES (?)`,
+          [userId]
+        );
+
+        await connection.commit();
+
+        // Send verification email
+        const mailOptions = {
           from: process.env.EMAIL_ADDRESS,
           to: email,
-          subject: 'Verify your email address for Matcha',
-          html: `<p>Click the link below to verify your account for Matcha</p>
-                <a href="http://localhost:3000/confirm/${username}/${code}">Link</a>
-                <p>- Matcha team</p>`
-        }
+          subject: 'Verify your Ethiopian Dating account',
+          html: `
+            <p>Welcome to Ethiopian Dating!</p>
+            <p>Click the link below to verify your account:</p>
+            <a href="http://localhost:3000/confirm/${username}/${verificationCode}">
+              Verify Account
+            </a>
+          `
+        };
 
-        transporter.sendMail(mailOptions, function (error, info) {
-          if (error) {
-            console.error('Something went wrong when trying to send email: ', error)
-          } else {
-            console.log('Email sent successfully: ' + info.response)
-          }
-        })
+        await transporter.sendMail(mailOptions);
+        response.json({ success: true });
+
+      } catch (error) {
+        await connection.rollback();
+        throw error;
+      } finally {
+        connection.release();
       }
 
-      const hashPasswordAndSaveUser = async () => {
-        const hash = await bcrypt.hash(password, 10)
-        try {
-          const newUser = await pool.query(
-            'INSERT INTO users (username, firstname, lastname, email, password) VALUES($1, $2, $3, $4, $5) RETURNING *',
-            [username, firstname, lastname, email, hash]
-          )
-          sql = "INSERT INTO fame_rates (user_id) VALUES ($1)";
-          await pool.query(sql, [newUser.rows[0]['id']])
-          return
-        } catch (error) {
-          console.error("Something went wrong when trying to create a new user: ", error)
-          throw ('Something went wrong when trying to create the new user. Please try again!')
-        }
-
-      }
-
-      // if (validateSignupData(request.body) == -1) {
-      // response.json('error')
-      // }
-
-      hashPasswordAndSaveUser()
-        .then(() => generateVerificationCode())
-        .then((code) => sendVerificationCodeByEmail(email, username, code))
-        .then(() => {
-          response.send(true)
-        }).catch((error) => {
-          response.send(error)
-        })
-    } else {
-      response.send(signupValidationResult)
+    } catch (error) {
+      console.error("Signup error:", error.message);
+      response.status(400).json({ error: error.message });
     }
-  })
+  });
 
+  // Verification endpoint
   app.post('/api/signup/verifyuser', async (request, response) => {
-    const username = request.body.username
-    const code = request.body.code
+    try {
+      const { username, code } = request.body;
 
-    const checkCodeValidity = async () => {
-      var sql =
-        `SELECT * FROM email_verify
-          INNER JOIN users
-          ON email_verify.user_id = users.id
-          WHERE email_verify.verify_code = $1;`
-      const result = await pool.query(sql, [code])
-      if (result.rows.length < 1) {
-        console.error('Verification failed.')
-        throw ('Invalid code!')
-      } else {
-        return (true)
+      const [verifyRows] = await pool.query(
+        `SELECT user_id FROM email_verify 
+         WHERE verify_code = ?`,
+        [code]
+      );
+
+      if (verifyRows.length === 0) {
+        throw new Error("Invalid verification code");
       }
-    }
 
-    const setAccountVerified = () => {
-      var sql = 'UPDATE users SET verified = \'YES\' WHERE username = $1'
-      pool.query(sql, [username])
-      var sql = 'DELETE FROM email_verify WHERE verify_code = $1'
-      pool.query(sql, [code])
-    }
+      // Update user as verified
+      await pool.query(
+        `UPDATE users SET verified = 'YES' 
+         WHERE username = ?`,
+        [username]
+      );
 
-    checkCodeValidity()
-      .then(() => {
-        setAccountVerified()
-        response.send(true)
-      }).catch((error) => {
-        response.send(error)
-      })
-  })
-}
+      // Delete verification code
+      await pool.query(
+        `DELETE FROM email_verify 
+         WHERE verify_code = ?`,
+        [code]
+      );
+
+      response.json({ success: true });
+
+    } catch (error) {
+      console.error("Verification error:", error.message);
+      response.status(400).json({ error: error.message });
+    }
+  });
+};

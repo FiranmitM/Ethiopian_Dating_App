@@ -1,136 +1,202 @@
-import React from "react"
-import { useEffect, useState } from 'react'
-import "./style/App.css"
-import { BrowserRouter, Routes, Route } from 'react-router-dom'
-import { ThemeProvider, createTheme, Container } from "@mui/material"
-import { useDispatch, useSelector } from "react-redux"
-import signUpService from './services/signUpService'
+import React, { useEffect, useState } from "react";
+import "./style/App.css";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { ThemeProvider, createTheme, Container, CssBaseline } from "@mui/material";
+import { useDispatch, useSelector } from "react-redux";
+import socketIO from "socket.io-client";
 
-//pages & components
-import Home from "./pages/Home.js"
-import Signup from "./pages/Signup"
-import Browsing from "./pages/Browsing/Browsing"
-import Profile from "./pages/Profile/Profile"
-import RedirectPage from "./pages/RedirectPage"
-import Navbar from "./components/navbar/Navbar"
-import Login from "./pages/Login/Login"
-import ResetPassword, { SetNewPassword } from "./pages/Login/ResetPassword"
-import ProfileSettings from "./pages/Profile/ProfileSettings"
-import ChangePassword from "./pages/Profile/ChangePassword"
-import ConfirmMail from "./pages/Login/ConfirmMail"
-import UserProfile from "./pages/Profile/UserProfile"
-import Chat from "./pages/Chat/Chat"
-import Logout from "./pages/Logout"
-import Footer from "./components/Footer"
-import { grey, pink } from "@mui/material/colors"
-import PathNotExists from "./pages/PathNotExists"
-import { getProfileData } from "./reducers/profileReducer"
-// import { getUserLists } from "./reducers/userListsReducer"
-import { getUserNotifications } from "./reducers/userNotificationsReducer"
-import { setUser } from "./reducers/userReducer"
-import { changeOnlineUsers } from './reducers/onlineUsersReducer'
-import socketIO from 'socket.io-client'; 
-import Loader from "./components/Loader"
+// Services
+import signUpService from "./services/signUpService";
 
-const font = "'Readex Pro', sans-serif";
+// Pages & Components
+import WelcomePage from "./components/WelcomePage";
+import Home from "./pages/Home";
+import Signup from "./pages/Signup";
+import Login from "./pages/Login/Login";
+import Browsing from "./pages/Browsing/Browsing";
+import Profile from "./pages/Profile/Profile";
+import ProfileSettings from "./pages/Profile/ProfileSettings";
+import UserProfile from "./pages/Profile/UserProfile";
+import Chat from "./pages/Chat/Chat";
+import ResetPassword from "./pages/Login/ResetPassword";
+import ConfirmMail from "./pages/Login/ConfirmMail";
+import Logout from "./pages/Logout";
+import PathNotExists from "./pages/PathNotExists";
+import Header from "./components/Header";
+import Footer from "./components/Footer";
+import Loader from "./components/Loader";
+import Notification from "./components/notification/Notification";
 
+// Redux Actions
+import { setUser } from "./reducers/userReducer";
+import { getProfileData } from "./reducers/profileReducer";
+import { getUserNotifications } from "./reducers/userNotificationsReducer";
+import { changeOnlineUsers } from "./reducers/onlineUsersReducer";
+
+// Theme Configuration
 const theme = createTheme({
-    palette: {
-        primary: {
-            main: pink[500],
+  palette: {
+    primary: {
+      main: "#2e7d32",
+      light: "#4caf50",
+      dark: "#1b5e20",
+    },
+    secondary: {
+      main: "#d32f2f",
+      light: "#f44336",
+      dark: "#b71c1c",
+    },
+    background: {
+      default: "#f5f5f5",
+      paper: "#ffffff",
+    },
+  },
+  typography: {
+    fontFamily: "'Readex Pro', sans-serif",
+  },
+  components: {
+    MuiButton: {
+      styleOverrides: {
+        root: {
+          borderRadius: "8px",
+          textTransform: "none",
+          fontWeight: "bold",
         },
-        secondary: {
-            main: grey[500],
-        }
+      },
     },
-    components: {
-        MuiButton: {
-            styleOverrides: {
-                root: {
-                    borderRadius: '30px',
-                    border: 'none',
-                    textTransform: 'none'
-                }
-            }
-        }
-    },
-    typography: {
-        fontFamily: font,
-    }
-})
+  },
+});
 
 const App = () => {
-    const [socket, setSocket] = useState(null)
-    const [socketConnected, setSocketConnected] = useState(false)
-    const dispatch = useDispatch()
-    const user = useSelector(state => state.user)
+  const [socket, setSocket] = useState(null);
+  const [socketConnected, setSocketConnected] = useState(false);
+  const dispatch = useDispatch();
+  const user = useSelector((state) => state.user);
 
-    useEffect(() => {
-        setSocket(socketIO('http://localhost:3001'))
-    }, [])
+  // Initialize socket connection
+  useEffect(() => {
+    const newSocket = socketIO("http://localhost:3001");
+    setSocket(newSocket);
 
-    useEffect(() => {
-		if (!socket) return
+    newSocket.on("connect", () => {
+      setSocketConnected(true);
+    });
 
-		socket.on('connect', () => {
-			setSocketConnected(true)
-		})
-		socket.on('newUserResponse', (data) => {
-			dispatch(changeOnlineUsers(data))
-		})
-	}, [socket, dispatch, user])
+    newSocket.on("newUserResponse", (data) => {
+      dispatch(changeOnlineUsers(data));
+    });
 
-    useEffect(() => {
-        dispatch(getProfileData())
-        // dispatch(getUserLists())
-        dispatch(getUserNotifications())
-        signUpService
-            .getSessionUser()
-            .then(result => {
-                dispatch(setUser(result))
-            })
+    return () => newSocket.disconnect();
+  }, [dispatch]);
 
-    }, [dispatch])
+  // Check for existing session
+  useEffect(() => {
+    const initializeUser = async () => {
+      try {
+        const sessionUser = await signUpService.getSessionUser();
+        if (sessionUser) {
+          dispatch(setUser(sessionUser));
+          dispatch(getProfileData());
+          dispatch(getUserNotifications());
+        }
+      } catch (error) {
+        console.error("Session initialization error:", error);
+      }
+    };
+    initializeUser();
+  }, [dispatch]);
 
-    useEffect(() => {
-		if (user && socketConnected) {
-			if (user.name && socket.id) {
-				socket.emit("newUser", { name: user.name, id: user.id, socketID: socket.id })
-				socket.emit("join_notification", { id: user.id })
-			}
-		}
-	}, [user, socket, socketConnected])
-
-    if (!socketConnected) return <Loader text="Waiting for socket..." />
-
+  if (!socketConnected) {
     return (
-            <ThemeProvider theme={theme}>
-                <Container sx={{ height: 'auto', width: 'auto' }}>
-                    <BrowserRouter>
-                        <RedirectPage />
-                        <Navbar socket={socket} />
-                        <Routes>
-                            <Route path={"/"} element={<Home />} />
-                            <Route path={"/login"} element={<Login socket={socket} />} />
-                            <Route path={"/login/resetpassword"} element={<ResetPassword />} />
-                            <Route path={"/resetpassword/:user/:code"} element={<SetNewPassword />} />
-                            <Route path={"/signup"} element={<Signup />} />
-                            <Route path={"/settings"} element={<ProfileSettings />} />
-                            <Route path={"/changepassword"} element={<ChangePassword />} />
-                            <Route path={"/confirm/:user/:code"} element={<ConfirmMail />} />
-                            <Route path={"/browsing"} element={<Browsing />} />
-                            <Route path={"/profile"} element={<Profile />} />
-                            <Route path={"/profile/:id"} element={<UserProfile />} />
-                            <Route path={"/chat"} element={<Chat socket={socket} />} />
-                            <Route path={"/chat/:id"} element={<Chat socket={socket} />} />
-                            <Route path={"/logout"} element={<Logout socket={socket}/>} />
-                            <Route path='*' element={<PathNotExists />} />
-                        </Routes>
-                    </BrowserRouter>
-                    <Footer />
-                </Container>
-            </ThemeProvider>
-    )
-}
+      <Container sx={{ 
+        display: "flex", 
+        justifyContent: "center", 
+        alignItems: "center", 
+        height: "100vh" 
+      }}>
+        <Loader text="Connecting to server..." />
+      </Container>
+    );
+  }
 
-export default App 
+  return (
+    <ThemeProvider theme={theme}>
+      <CssBaseline />
+      <BrowserRouter>
+        <Routes>
+          {/* Root path redirects to welcome page */}
+          <Route path="/" element={<Navigate to="/welcome" replace />} />
+          
+          {/* Welcome Page (now default) */}
+          <Route 
+            path="/welcome" 
+            element={<WelcomePage />} 
+          />
+          
+          {/* Authentication Routes */}
+          <Route 
+            path="/login" 
+            element={
+              <>
+                <Header />
+                <Login socket={socket} />
+                <Footer />
+              </>
+            } 
+          />
+          <Route 
+            path="/signup" 
+            element={
+              <>
+                <Header />
+                <Signup />
+                <Footer />
+              </>
+            } 
+          />
+          
+          {/* Authenticated Routes */}
+          {user && (
+            <>
+              <Route 
+                path="/home" 
+                element={
+                  <>
+                    <Header />
+                    <Home />
+                    <Footer />
+                  </>
+                } 
+              />
+              <Route 
+                path="/profile" 
+                element={
+                  <>
+                    <Header />
+                    <Profile />
+                    <Footer />
+                  </>
+                } 
+              />
+              {/* Add other authenticated routes here */}
+            </>
+          )}
+          
+          {/* Fallback Route */}
+          <Route 
+            path="*" 
+            element={
+              <>
+                <Header />
+                <PathNotExists />
+                <Footer />
+              </>
+            } 
+          />
+        </Routes>
+      </BrowserRouter>
+    </ThemeProvider>
+  );
+};
+
+export default App;

@@ -1,79 +1,129 @@
-import { Button, Paper, TextField, Typography } from "@mui/material"
-import { Container } from "@mui/system"
-import { useDispatch } from "react-redux"
-import { useNavigate } from "react-router-dom"
-import Notification from "../../components/notification/Notification"
-import { changeNotification } from "../../reducers/notificationReducer"
-import { changeSeverity } from "../../reducers/severityReducer"
-import signUpService from "../../services/signUpService"
-import { setUser } from "../../reducers/userReducer"
-import { getProfileData } from '../../reducers/profileReducer'
-import { getUserLists } from "../../reducers/userListsReducer"
-import { getUserNotifications } from "../../reducers/userNotificationsReducer"
-
+import { Button, Paper, TextField, Typography, Box, Link } from "@mui/material";
+import { Container } from "@mui/system";
+import { useDispatch } from "react-redux";
+import { useNavigate } from "react-router-dom";
+import Notification from "../../components/notification/Notification";
+import { changeNotification } from "../../reducers/notificationReducer";
+import { changeSeverity } from "../../reducers/severityReducer";
+import signUpService from "../../services/signUpService";
+import { setUser } from "../../reducers/userReducer";
+import { getProfileData } from '../../reducers/profileReducer';
+import { getUserLists } from "../../reducers/userListsReducer";
+import { getUserNotifications } from "../../reducers/userNotificationsReducer";
 
 const Login = ({ socket }) => {
-
-    const dispatch = useDispatch()
-    const navigate = useNavigate()
+    const dispatch = useDispatch();
+    const navigate = useNavigate();
 
     const submitUser = async (event) => {
-        event.preventDefault()
+        event.preventDefault();
 
         const signedUpUser = {
             username: event.target.username.value,
             password: event.target.password.value,
-        }
+        };
 
         signUpService.logInUser(signedUpUser)
             .then(result => {
                 if (result.userid) {
-                    const sessionUser = { name: result.username, id: result.userid }
-                    dispatch(setUser(sessionUser))
-
-                    dispatch(getUserLists())
-                    dispatch(getUserNotifications())
-                    dispatch(getProfileData())
-                    dispatch(changeNotification(""))
-                    socket.emit("newUser", { name: result.username, id: result.userid, socketID: socket.id })
-                    socket.emit("join_notification", { id: result.userid })
-
+                    const sessionUser = { name: result.username, id: result.userid };
+                    dispatch(setUser(sessionUser));
+                    dispatch(getUserLists());
+                    dispatch(getUserNotifications());
+                    dispatch(getProfileData());
+                    dispatch(changeNotification(""));
+                    socket.emit("newUser", { name: result.username, id: result.userid, socketID: socket.id });
+                    socket.emit("join_notification", { id: result.userid });
+                    navigate('/home');
                 } else {
-                    dispatch(changeSeverity('error'))
-                    dispatch(changeNotification(result))
-
+                    dispatch(changeSeverity('error'));
+                    dispatch(changeNotification(result));
                 }
-            })
-    }
+            });
+    };
 
     const navigateToReset = () => {
-        navigate('/login/resetpassword')
-    }
+        navigate('/login/resetpassword');
+    };
 
     return (
         <Container
             sx={{
-                pt: 5,
-                pb: 5,
-                backgroundImage: `url("https://assets.materialup.com/uploads/cd7deaa7-e263-4c1b-98c9-132d248fc0d4/preview.png")`,
-                backgroundSize: 'cover',
-                width: 'auto',
-                height: 'auto',
-                minHeight: '80vh',
+                display: 'flex',
+                justifyContent: 'center',
+                alignItems: 'center',
+                minHeight: 'calc(100vh - 128px)',
+                py: 4
             }}
         >
-            <Paper elevation={10} align='center' sx={{ padding: 3, width: '50%', margin: 'auto' }} >
-                <Typography variant="h2" align='center'> Login </Typography>
-                <form onSubmit={submitUser} align='center'>
-                    <TextField fullWidth margin='normal' name='username' label='Username' placeholder="Username" autoComplete="nickname" required> </TextField>
-                    <TextField fullWidth margin='normal' type="password" name='password' label='Password' placeholder="Password" autoComplete="new-password" required> </TextField>
-                    <Button type='submit' variant="contained" size="large" sx={{ mt: 2}}> Submit </Button>
+            <Paper 
+                elevation={3} 
+                sx={{ 
+                    p: 4, 
+                    width: '100%', 
+                    maxWidth: 500,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: 2
+                }}
+            >
+                <Typography variant="h4" align="center" gutterBottom>
+                    Welcome Back!
+                </Typography>
+                <Typography variant="body1" align="center" sx={{ mb: 2 }}>
+                    Please login to your account
+                </Typography>
+                
+                <form onSubmit={submitUser}>
+                    <TextField
+                        fullWidth
+                        margin="normal"
+                        name="username"
+                        label="Username"
+                        required
+                    />
+                    <TextField
+                        fullWidth
+                        margin="normal"
+                        type="password"
+                        name="password"
+                        label="Password"
+                        required
+                    />
+                    <Button 
+                        type="submit" 
+                        variant="contained" 
+                        fullWidth
+                        size="large"
+                        sx={{ mt: 2 }}
+                    >
+                        Login
+                    </Button>
                 </form>
-                <Button onClick={navigateToReset} sx={{ mt: 1 }}> Forgot Password?</Button>
+                
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 2 }}>
+                    <Button 
+                        onClick={navigateToReset}
+                        color="secondary"
+                    >
+                        Forgot Password?
+                    </Button>
+                    <Typography variant="body2">
+                        Don't have an account? {' '}
+                        <Link 
+                            href="/signup" 
+                            underline="hover"
+                            sx={{ cursor: 'pointer', fontWeight: 'bold' }}
+                        >
+                            Sign Up
+                        </Link>
+                    </Typography>
+                </Box>
+                
                 <Notification />
             </Paper>
         </Container>
-    )
-}
+    );
+};
 
-export default Login
+export default Login;

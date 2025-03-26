@@ -2,18 +2,46 @@ import React from 'react'
 import '../style/Loader.css'
 import { Typography, Box } from '@mui/material'
 
-const Loader = ({ text }) => {
-	return <Box display="flex" sx={{ mt: 10, mb: 10 }}>
-		<Box sx={{ width: '160px', justifyContent: "center", flex: 1 }}>
-			<Typography
-				align="center"
-				sx={{ color: "pink", fontWeight: 700, fontSize: 20, textShadow: "0 2px 1px rgba(145,51,54,0.5)" }}
-			>
-				{text}
-			</Typography>
-			<div className="loader" />
-		</Box>
-	</Box>
+const Loader = ({ text, welcomeMessage }) => {
+  return (
+    <Box 
+      sx={{
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        minHeight: '100vh',
+        background: 'linear-gradient(rgba(0,0,0,0.7), rgba(0,0,0,0.7))',
+        color: 'white'
+      }}
+    >
+      {welcomeMessage && (
+        <Typography 
+          variant="h2"
+          sx={{
+            mb: 4,
+            fontWeight: 'bold',
+            color: '#FCDD09', // Ethiopian yellow
+            textShadow: '2px 2px 4px rgba(0,0,0,0.5)'
+          }}
+        >
+          Welcome to Ethiopian Dating App
+        </Typography>
+      )}
+      
+      <Typography
+        variant="h5"
+        sx={{ 
+          color: 'white',
+          mb: 3
+        }}
+      >
+        {text}
+      </Typography>
+      
+      <div className="loader" />
+    </Box>
+  )
 }
 
 export default Loader

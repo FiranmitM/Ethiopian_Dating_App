@@ -1,11 +1,11 @@
-SET time_zone = 'Europe/Helsinki';
+SET time_zone = '+03:00';  -- Ethiopia Time Zone
 
 CREATE TABLE IF NOT EXISTS users (
     id INT AUTO_INCREMENT PRIMARY KEY,
-    username VARCHAR(255) NOT NULL,
+    username VARCHAR(255) NOT NULL UNIQUE,
     firstname VARCHAR(255) NOT NULL,
     lastname VARCHAR(255) NOT NULL,
-    email VARCHAR(255) NOT NULL,
+    email VARCHAR(255) NOT NULL UNIQUE,
     password VARCHAR(255) NOT NULL,
     verified ENUM('YES', 'NO') DEFAULT 'NO',
     last_connection TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -16,7 +16,7 @@ CREATE TABLE IF NOT EXISTS email_verify (
     user_id INT NOT NULL,
     email VARCHAR(255) NOT NULL,
     verify_code VARCHAR(255) NOT NULL,
-    expire_time TIMESTAMP DEFAULT (NOW() + INTERVAL 30 MINUTE),
+    expire_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
@@ -37,7 +37,7 @@ CREATE TABLE IF NOT EXISTS user_settings (
     biography TEXT NOT NULL,
     fame_rating INT NOT NULL DEFAULT 0,
     user_location VARCHAR(255) NOT NULL,
-    IP_location POINT NOT NULL DEFAULT ST_GeomFromText('POINT(0 0)'),
+    IP_location POINT NOT NULL,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
@@ -54,7 +54,8 @@ CREATE TABLE IF NOT EXISTS likes (
     liker_id INT NOT NULL,
     target_id INT NOT NULL,
     liketime TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (liker_id) REFERENCES users(id) ON DELETE CASCADE
+    FOREIGN KEY (liker_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (target_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
 CREATE TABLE IF NOT EXISTS connections (
@@ -88,7 +89,7 @@ CREATE TABLE IF NOT EXISTS user_tags (
 
 CREATE TABLE IF NOT EXISTS chat (
     chat_id INT AUTO_INCREMENT PRIMARY KEY,
-    connection_id INT NOT NULL,
+    connection_id INT NULL,
     sender_id INT NOT NULL,
     message TEXT NOT NULL,
     read_status ENUM('YES', 'NO') DEFAULT 'NO',
@@ -109,13 +110,15 @@ CREATE TABLE IF NOT EXISTS reports (
     report_id INT AUTO_INCREMENT PRIMARY KEY,
     sender_id INT NOT NULL,
     target_id INT NOT NULL,
-    time_stamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    time_stamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (sender_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (target_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
 CREATE TABLE IF NOT EXISTS notifications (
     notification_id INT AUTO_INCREMENT PRIMARY KEY,
     user_id INT NOT NULL,
-    sender_id INT NOT NULL,
+    sender_id INT NULL,
     notification_text VARCHAR(255) NOT NULL,
     redirect_path VARCHAR(255),
     read_status ENUM('YES', 'NO') DEFAULT 'NO',

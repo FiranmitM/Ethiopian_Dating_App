@@ -1,56 +1,99 @@
-import { Box, Paper, Typography } from '@mui/material'
-import Button from '@mui/material/Button'
-import { useSelector } from 'react-redux'
-import { useNavigate} from 'react-router-dom'
+import React from "react";
+import { Box, Button, Typography, Container, Grid, Link } from "@mui/material";
+import { useTheme } from "@mui/material/styles";
 
 const Home = () => {
+  const theme = useTheme();
 
-    // all the variables needed before the return
-    const user = useSelector(state => state.user)
-    const navigate = useNavigate()
+  return (
+    <Box
+      sx={{
+        height: "100vh",
+        background: `linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.5)), url('/ethiopian-background.jpg')`,
+        backgroundSize: "cover",
+        backgroundPosition: "center",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        color: "white",
+        textAlign: "center",
+      }}
+    >
+      <Container maxWidth="md">
+        <Typography
+          variant="h1"
+          sx={{
+            fontWeight: "bold",
+            mb: 3,
+            color: theme.palette.accent.main,
+            textShadow: "2px 2px 4px rgba(0,0,0,0.5)",
+          }}
+        >
+          Welcome to Ethiopian Dating App
+        </Typography>
+        
+        <Typography variant="h5" sx={{ mb: 5 }}>
+          Find your perfect match in Ethiopia's finest dating community
+        </Typography>
 
-    const handleClick = () => {
-        if (user !== undefined && user !== '') {
-            navigate('/logout')
-        } else
-        {
-            navigate('/signup')
-        }
-    }       
-
-    // after return, no logic, just the minimum, components
-    return (
-            <Paper 
-                // component={Stack} direction="column" 
-                sx={{ 
-                    pt:5, 
-                    pb: 5,
-                    backgroundImage: `url("https://assets.materialup.com/uploads/cd7deaa7-e263-4c1b-98c9-132d248fc0d4/preview.png")`,
-                    backgroundSize: 'cover',
-                    width: 'auto',
-                    height: 'auto',
-                    minHeight: '80vh',
-
-                }}
+        <Grid container spacing={3} justifyContent="center">
+          <Grid item>
+            <Button
+              variant="contained"
+              color="primary"
+              size="large"
+              href="/login"
+              sx={{ 
+                px: 5, 
+                py: 1.5, 
+                fontSize: "1.1rem",
+                '&:hover': {
+                  backgroundColor: theme.palette.primary.dark
+                }
+              }}
             >
-                <Box display="flex" justifyContent="center" alignItems="center" minHeight="70vh">
-                    <Box textAlign='center'>
-                        <Typography 
-                            variant='h1' 
-                            color={'black'} 
-                            fontWeight={'bold'} 
-                            aligh="center"
-                            sx={{ pt:5, pb:5 }}
-                        >
-                            Swipe Right®
-                        </Typography>
-                        <Button variant="contained" size="large" onClick={handleClick} >
-                            {(user !== undefined && user !== '') ? 'Signout' : 'Create Account'}
-                        </Button>
-                    </Box>
-                </Box>
-            </Paper>
-    )
-}
+              Login
+            </Button>
+          </Grid>
+          <Grid item>
+            <Button
+              variant="contained"
+              color="secondary"
+              size="large"
+              href="/signup"
+              sx={{ 
+                px: 5, 
+                py: 1.5, 
+                fontSize: "1.1rem",
+                '&:hover': {
+                  backgroundColor: theme.palette.secondary.dark
+                }
+              }}
+            >
+              Sign Up
+            </Button>
+          </Grid>
+        </Grid>
 
-export default Home
+        <Typography variant="body1" sx={{ mt: 4, color: 'white' }}>
+          Don't have an account?{' '}
+          <Link 
+            href="/signup" 
+            sx={{ 
+              color: theme.palette.accent.light,
+              fontWeight: 'bold',
+              textDecoration: 'none',
+              '&:hover': {
+                textDecoration: 'underline'
+              }
+            }}
+          >
+            Sign up here
+          </Link>
+        </Typography>
+      </Container>
+    </Box>
+  );
+};
+
+export default Home;
