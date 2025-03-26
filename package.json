@@ -1,0 +1,1 @@
+{"proxy":"http://host.docker.internal:3001","dependencies":{"dotenv":"^16.4.7","mysql2":"^3.14.0"}}

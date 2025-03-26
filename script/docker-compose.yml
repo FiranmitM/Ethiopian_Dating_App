@@ -1,0 +1,14 @@
+version: '3.8'
+
+services:
+  script:
+    build: ./
+    volumes:
+      - ./:/app
+      - /app/node_modules
+    command: npm run start
+
+networks:
+  default:
+    name: matcha_network
+    external: true
